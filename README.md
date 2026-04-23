@@ -68,9 +68,31 @@ Assets (images, sounds) are kept in an assets/ folder.
    - Integrate gravity and user-applied forces (e.g., fling).
 7. **Game World Management**
    - Track and update all entities in the game world.
+   - Separate or move some of the code from main.js into world.js, which code
+   is related to keeping track of game objects or entities while main.js will be
+   responsible for just the game loop logic 
+   - The world can have different kinds of objects which all have physical properties such as position, velocity etc, but may have different shapes. Separate the physical properties into a new class
 8. **Basic Game Mechanics**
    - Add simple enemy and projectile logic.
 9. **User Interaction**
    - Allow user to launch projectiles (arrows, stones).
 10. **Tower Defense Features**
     - Implement enemy waves, castle health, and upgrades.
+
+
+Recommended "Phase 1" Roadmap for a Game-Ready Engine:
+Week 1-2: Shapes & Broadphase
+
+Implement AABB and Polygon (using SAT) classes.
+
+Implement a simple Spatial Hash/Grid for broadphase.
+
+Week 3: Friction & Materials
+
+Integrate friction and restitution into your collision resolution step.
+
+Create a way to assign materials.
+
+Week 4: Rotation
+
+Add angular velocity, inertia, and torque.

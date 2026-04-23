@@ -1,71 +1,38 @@
 // main.js
 
+import Vector2 from './game/vector2.js';
 import { Circle } from './game/shapes/circle.js';
+import { RigidBody } from './game/rigidBody.js';
+import { BALL_COLORS, BALL_RADIUS, BALL_SPEED, MAX_BALLS, TIME_STEP, GRAVITY } from './settings.js';
+import { GameWorld } from './game/world.js';
+import { inputState, initInputListeners } from './game/input.js';
 
 // Initialize the canvas and set up drawing functionalities
-const canvas = document.getElementById('drawingCanvas');
+export const canvas = document.getElementById('drawingCanvas');
 const ctx = canvas.getContext('2d');
 
 // Set canvas dimensions
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
-// Create balls (circles) with random positions
-const balls = [];
-const BALL_COUNT = 10;
-const BALL_RADIUS = 30;
-const BALL_SPEED = 2;
+// world instance
+export const world = new GameWorld();
 
-// Nice color palette for balls
-const BALL_COLORS = [
-    '#4F8A8B', // teal
-    '#FBD46D', // yellow
-    '#F76A6A', // coral
-    '#A1C6EA', // light blue
-    '#374785', // deep blue
-    '#24305E', // navy
-    '#70A1D7', // sky blue
-    '#FFB085', // peach
-    '#FF7E67', // orange
-    '#6DD47E'  // green
-];
+// Detect which page we're on
+const isTesting = window.location.pathname.endsWith('test-engine.html');
 
-for (let i = 0; i < BALL_COUNT; i++) {
-    const x = Math.random() * (canvas.width - BALL_RADIUS * 2) + BALL_RADIUS;
-    const y = Math.random() * (canvas.height / 3);
-    const color = BALL_COLORS[Math.floor(Math.random() * BALL_COLORS.length)];
-    balls.push(new Circle(x, y, BALL_RADIUS, color));
-}
-
-function resizeCanvas() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-    // Do NOT reposition existing balls on resize
-}
-
-// Remove centerBalls and its call
-
-window.addEventListener('resize', () => {
-    resizeCanvas();
-});
-
-// Initial canvas setup
-resizeCanvas();
-
-function drawBalls() {
-    for (const ball of balls) {
-        ball.draw(ctx);
+// Only create balls for the menu page
+if (!isTesting) {
+    for (let i = 0; i < MAX_BALLS; i++) {
+        const x = Math.random() * (canvas.width - BALL_RADIUS * 2) + BALL_RADIUS;
+        const y = Math.random() * (canvas.height / 3);
+        const color = BALL_COLORS[Math.floor(Math.random() * BALL_COLORS.length)];
+        const velocity = new Vector2(0, BALL_SPEED);
+        balls.push(new Circle(x, y, BALL_RADIUS, color, velocity));
     }
 }
 
-function updateBalls() {
-    for (const ball of balls) {
-        ball.y += BALL_SPEED;
-        if (ball.y - ball.radius > canvas.height) {
-            ball.y = -ball.radius; // Reset to top if it falls below canvas
-        }
-    }
-}
+initInputListeners();
 
 function drawWelcomeText() {
     ctx.fillStyle = 'black';
@@ -74,27 +41,109 @@ function drawWelcomeText() {
     ctx.fillText('Welcome to Physics Defense!', canvas.width / 2, canvas.height / 2);
 }
 
-function animate() {
+function animateMenu() {
     ctx.fillStyle = 'white';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    updateBalls();
-    drawBalls();
+    world.update(TIME_STEP);
+    world.draw(ctx);
+    
+    //menu
     drawWelcomeText();
 
-    requestAnimationFrame(animate);
+    requestAnimationFrame(animateMenu);
 }
 
-animate();
+function animateTestEngine() {
+    ctx.fillStyle = 'white';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-function spawnBall() {
-    const x = Math.random() * (canvas.width - BALL_RADIUS * 2) + BALL_RADIUS;
-    const y = Math.random() * (canvas.height / 3);
-    const color = BALL_COLORS[Math.floor(Math.random() * BALL_COLORS.length)];
-    balls.push(new Circle(x, y, BALL_RADIUS, color));
+    world.update(TIME_STEP);
+
+    //collisions detection/resolution would go here
+    world.resolveCollisions();
+
+    world.draw(ctx);
+
+    // Optionally, add test info text
+    ctx.fillStyle = 'black';
+    ctx.font = '32px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('Physics Engine Test Animation', canvas.width / 2, 50);
+
+    // Check closest ball info while right mouse button is held
+    if (inputState.mouse.rightDown && inputState.mouse.movedObject == null) {
+        findAndBindObjectToMouse();
+    }
+    if (inputState.mouse.rightDown  && inputState.mouse.movedObject != null) {
+        moveWithMouse();
+    } else {
+        inputState.mouse.movedObject = null;  
+    }
+
+    let g = GRAVITY.ZERO; // default to no gravity
+    
+    switch (inputState.gravitySelected) {
+        case '3':
+            g = GRAVITY.STRONG;
+            break;
+        case '2':
+            g = GRAVITY.NORMAL;
+            break;
+        case '1':
+            g = GRAVITY.WEAK;
+            break;
+        case '0':
+            g = GRAVITY.ZERO;
+            break;
+    }
+  
+    for (const entity of world.entities) {
+        entity.acceleration.y = g;
+    }
+    
+    requestAnimationFrame(animateTestEngine);
 }
+
+// Start appropriate animation
+if (!isTesting) {
+    animateMenu();
+} else {
+    animateTestEngine();
+}
+
 
 // Example: spawn a new ball every 2 seconds (optional)
-setInterval(() => {
-    spawnBall();
-}, 2000);
+if (!isTesting) {
+    setInterval(() => {
+        world.spawnObject(canvas, null, 
+            BALL_COLORS[Math.floor(Math.random() * BALL_COLORS.length)], 
+            new Vector2(0, BALL_SPEED));
+    }, 100);
+}
+
+// Listen for navigation to test-engine.html from the menu
+if (!isTesting) {
+    const testEngineButton = document.querySelector('.center-btn button');
+    if (testEngineButton) {
+        testEngineButton.addEventListener('click', () => {
+            world.entities = []; // Clear existing entities
+        });
+    }
+}
+
+
+function findAndBindObjectToMouse() {
+    const obj = world.checkObjectAtPosition(inputState.mouse.position);
+    if (obj) {
+        inputState.mouse.movedObject = obj;
+    }
+}
+
+function moveWithMouse() {
+    let ball = inputState.mouse.movedObject;
+    ball.shape.position.x = inputState.mouse.position.x;
+    ball.shape.position.y = inputState.mouse.position.y;
+    //balls inherit the mouse velocity
+    ball.velocity = inputState.mouse.velocity.clone();  
+}
